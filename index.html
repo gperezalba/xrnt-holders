@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="utf-8">
+    <title>xRNT holders</title>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fetch@1.1.0/lib/fetch.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <script type="text/javascript">
+        const GRAPH_URL =
+            "https://api.thegraph.com/subgraphs/name/tutellus/reental";
+
+        async function run() {
+            const content = await getSubgraphData()
+            await generateExcel(content)
+        }
+
+        async function getSubgraphData() {
+            const owners = await getOwners()
+            const array = []
+
+            owners.forEach((owner) => {
+                const row = []
+                row.push(owner.owner)
+                row.push(parseFloat(convertToEtherUnits(owner.votingUnits)))
+                row.push(parseFloat(convertToEtherUnits(owner.escrowedAmount)))
+                array.push(row)
+            })
+
+            return array
+        }
+
+        async function generateExcel(rows) {
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet('xRNT_HOLDERS');
+            const columns = [
+                { name: 'Wallet', filterButton: true },
+                { name: 'xRNT', totalsRowFunction: 'sum' },
+                { name: 'RNT', totalsRowFunction: 'sum' }
+            ]
+
+            sheet.addTable({
+                name: "xrntTable",
+                ref: "B2",
+                headerRow: true,
+                totalsRow: true,
+                style: {
+                    theme: 'TableStyleMedium1',
+                    showRowStripes: true,
+                },
+                columns: columns,
+                rows: rows,
+            });
+
+            try {
+                await workbook.xlsx.writeFile('xRNT_holders.xlsx');
+            } catch (error) {
+                let buffer = await workbook.xlsx.writeBuffer();
+
+                try {
+                    await saveAs(new Blob([buffer]), 'xRNT_holders.xlsx');
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        }
+
+        async function getOwners() {
+            let skip = 0;
+            let query = '{ stakingERC721Owners (orderBy:escrowedAmount, orderDirection:desc, first:1000, skip: ' + skip + ') { owner escrowedAmount votingUnits } }';
+            let response = (await querySubgraph(query)).stakingERC721Owners;
+            let loopresponse = response;
+
+            while (loopresponse.length >= 1000) {
+                skip = response.length;
+                query = '{ stakingERC721Owners (orderBy:escrowedAmount, orderDirection:desc, first:1000, skip: ' + skip + ') { owner escrowedAmount votingUnits } }';
+                loopresponse = (await querySubgraph(query)).stakingERC721Owners;
+                response = response.concat(loopresponse);
+            }
+            return response;
+        }
+        async function querySubgraph(query) {
+            let response;
+            let responseData;
+
+            try {
+                response = await fetch(GRAPH_URL, {
+                    method: "POST",
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                    }),
+                });
+
+                if (response.ok) {
+                    responseData = await response.json();
+                    return responseData.data;
+                } else {
+                    return null;
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function convertToEtherUnits(amount) {
+            return ethers.utils.formatEther(amount)
+        }
+
+        function convertTimestampToDate(timestamp) {
+            return new Date(parseInt(timestamp) * 1000)
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <style type='text/css'>
+        body {
+            font-family: 'Open Sans', sans-serif;
+            font-weight: 400;
+            background-color: #25364b
+        }
+
+        h1 {
+            color: white;
+        }
+
+        h2 {
+            color: white;
+        }
+
+        h3 {
+            color: white;
+        }
+
+        h4 {
+            color: white;
+        }
+
+        h5 {
+            color: white;
+        }
+
+        .mySelector {
+            font-family: 'Open Sans', sans-serif;
+            font-weight: 400;
+            width: 150px;
+            font-size: 16px;
+        }
+
+        .mySelectorHidden {
+            font-family: 'Open Sans', sans-serif;
+            font-weight: 400;
+            width: 150px;
+            font-size: 16px;
+            visibility: hidden
+        }
+
+        .myCheckbox {
+            font-color: white;
+            background-color: green;
+        }
+
+        label {
+            color: white;
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        .myButton {
+            box-shadow: 0px 1px 0px 0px #fff6af;
+            background: linear-gradient(to bottom, #ffec64 5%, #ffab23 100%);
+            background-color: #ffec64;
+            border-radius: 6px;
+            border: 1px solid #ffaa22;
+            display: inline-block;
+            cursor: pointer;
+            color: #333333;
+            font-family: Arial;
+            font-size: 15px;
+            font-weight: bold;
+            padding: 6px 24px;
+            text-decoration: none;
+            text-shadow: 0px 1px 0px #ffee66;
+        }
+
+        .myButton:hover {
+            background: linear-gradient(to bottom, #ffab23 5%, #ffec64 100%);
+            background-color: #ffab23;
+        }
+
+        .myButton:active {
+            position: relative;
+            top: 1px;
+        }
+
+        .redondeadonorelieve {
+            border-radius: 5px;
+            border: 1px solid #39c;
+            text-align: center;
+            line-height: 30px;
+            visibility: hidden
+        }
+
+        .center {
+            margin: auto;
+            padding: 10px;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+
+    <div class="center">
+        <h1>xRNT holders</h1>
+        <h4>- Generate excel -</h4>
+        <br>
+        <br>
+        <br>
+        <div style="color: white;" id="wait"></div>
+        <br>
+        <button class="myButton" onclick="run();">Download</button>
+    </div>
+</body>
+
+</html>
